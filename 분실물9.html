@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>분실물 관리 시스템</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .floor-buttons {
+            margin-bottom: 15px;
+        }
+        .floor-buttons button {
+            margin: 10px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .input-section, .search-section {
+            margin-top: 10px;
+        }
+        .search-section input {
+            padding: 6px;
+            width: 50%;
+        }
+        .input-section input, .input-section select {
+            padding: 8px;
+            width: 70%;
+            margin-bottom: 5px;
+        }
+        .input-section button, .search-section button {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .lost-items li {
+            background: #eee;
+            margin: 5px 0;
+            padding: 10px;
+            cursor: pointer;
+        }
+        .bottom-buttons {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+        }
+        .bottom-buttons button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            color: white;
+        }
+        .green { background: green; }
+        .red { background: red; }
+    </style>
+</head>
+<body>
+    <div class="search-section">
+        <input type="text" id="search-input" placeholder="전체 층 검색">
+        <button onclick="searchItems()">검색</button>
+    </div>
+
+    <div class="floor-buttons">
+        <button onclick="selectFloor(1)">1층</button>
+        <button onclick="selectFloor(2)">2층</button>
+        <button onclick="selectFloor(3)">3층</button>
+        <button onclick="selectFloor(4)">4층</button>
+    </div>
+
+    <div class="container">
+        <h2 id="floor-title">1층 분실물</h2>
+        <ul id="lost-items" class="lost-items"></ul>
+        
+        <div class="input-section">
+            <input type="text" id="item-input" placeholder="분실물 입력">
+            <select id="location-select">
+                <option value="">찾을 수 있는 장소 선택 (선택사항)</option>
+            </select>
+            <button onclick="addItem()">입력</button>
+        </div>
+    </div>
+
+    <div class="bottom-buttons">
+        <button class="green" id="register-info">등록 안내</button>
+        <button class="red" id="delete-info">삭제 안내</button>
+    </div>
+
+    <script>
+        const SHEET_ID = "YOUR_GOOGLE_SHEET_ID";
+        const API_KEY = "YOUR_GOOGLE_API_KEY";
+        let selectedFloor = 1;
+        let locations = {
+            1: ["보건실 앞"],
+            2: ["큰 교무실", "작은 교무실"],
+            3: ["생활자치부", "3층 교무실"],
+            4: ["4층 교무실"]
+        };
+
+        function selectFloor(floor) {
+            selectedFloor = floor;
+            document.getElementById("floor-title").innerText = `${floor}층 분실물`;
+            updateLocationOptions();
+            fetchItems();
+        }
+
+        function updateLocationOptions() {
+            const select = document.getElementById("location-select");
+            select.innerHTML = "<option value=''>찾을 수 있는 장소 선택 (선택사항)</option>";
+            locations[selectedFloor].forEach(loc => {
+                let option = document.createElement("option");
+                option.value = loc;
+                option.innerText = loc;
+                select.appendChild(option);
+            });
+        }
+
+        function addItem() {
+            const item = document.getElementById("item-input").value.trim();
+            const location = document.getElementById("location-select").value;
+            if (item) {
+                const entry = location ? `${item} (${location})` : item;
+                saveItemToSheet(entry);
+                document.getElementById("item-input").value = "";
+            }
+        }
+
+        function fetchItems() {
+            fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${selectedFloor}?key=${API_KEY}`)
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById("lost-items");
+                    list.innerHTML = "";
+                    if (data.values) {
+                        data.values.forEach((row, index) => {
+                            const li = document.createElement("li");
+                            li.innerText = row[0];
+                            li.onclick = () => confirmDelete(index);
+                            list.appendChild(li);
+                        });
+                    }
+                });
+        }
+
+        function saveItemToSheet(item) {
+            fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${selectedFloor}:append?valueInputOption=RAW&key=${API_KEY}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ values: [[item]] })
+            }).then(fetchItems);
+        }
+
+        function confirmDelete(index) {
+            if (confirm("이 분실물을 삭제하시겠습니까?")) {
+                alert("Google Sheets에서 수동 삭제 필요");
+            }
+        }
+    </script>
+</body>
+</html>
